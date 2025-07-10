@@ -1,1 +1,5 @@
-/acesso;ERP;admin;123456;192.168.0.1;3306
+EPORTAL;sistema_x;admin;1234!@#;servidor.com;3306
+PRP;sistema_y;usuario1;senha123;host1.com;5432
+AUTH;sistema_z;userz;passz;authhost;8080
+MCS_EPORTAL;sistema_mcs;root;senha456;192.168.0.1;3306
+
