@@ -1,12 +1,12 @@
 import os
+import asyncio
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     filters, ContextTypes
 )
-import asyncio
 
-# Token e configurações
+# Configurações
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise RuntimeError("❌ BOT_TOKEN não definido!")
@@ -15,49 +15,49 @@ ARQUIVO = "mensagem.txt"
 SENHA_CORRETA = "potiguar123"
 PORTA = int(os.getenv("PORT", 8080))
 
+# Estado temporário
 usuario_em_espera = {}  # user_id -> módulo escolhido
+
 
 # Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mensagem = (
-        "Escolha um dos módulos abaixo e envie como mensagem:\n\n"
-        "👉 *EPORTAL*\n"
-        "👉 *PRP*\n"
-        "👉 *AUTH*\n"
-        "👉 *MCS_EPORTAL*\n\n"
-        "_Digite exatamente como está acima para continuar._"
+        "Escolha um dos módulos abaixo clicando no menu ou enviando como comando:\n\n"
+        "👉 `/eportal`\n"
+        "👉 `/prp`\n"
+        "👉 `/auth`\n"
+        "👉 `/mcs_eportal`\n\n"
+        "_Depois de escolher, digite a senha para acessar._"
     )
     await update.message.reply_text(mensagem, parse_mode="Markdown")
 
-# Ao receber qualquer texto
+
+# Função chamada pelos comandos de módulo
+async def selecionar_modulo(update: Update, context: ContextTypes.DEFAULT_TYPE, modulo: str):
+    user_id = update.effective_user.id
+    usuario_em_espera[user_id] = modulo
+    await update.message.reply_text(f"🔒 Digite a senha para acessar o módulo *{modulo}*:", parse_mode="Markdown")
+
+
+# Ao receber mensagem (verifica senha)
 async def ao_receber_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    texto = update.message.text.strip().upper()
+    senha = update.message.text.strip()
 
-    # Usuário escolheu um módulo
-    if texto in {"EPORTAL", "PRP", "AUTH", "MCS_EPORTAL"}:
-        usuario_em_espera[user_id] = texto
-        await update.message.reply_text(f"🔒 Digite a senha para acessar o módulo *{texto}*:", parse_mode="Markdown")
-        return
-
-    # Nenhum módulo selecionado ainda
     if user_id not in usuario_em_espera:
-        await update.message.reply_text("❗ Envie /start para ver os módulos disponíveis.")
+        await update.message.reply_text("❗ Escolha um módulo primeiro usando o menu ou /start.")
         return
 
-    senha = texto
     modulo = usuario_em_espera[user_id]
 
-    # Senha errada
     if senha != SENHA_CORRETA:
         await update.message.reply_text("❌ Senha incorreta.")
         del usuario_em_espera[user_id]
         return
 
-    # Leitura do arquivo com as credenciais
     try:
         with open(ARQUIVO, "r", encoding="utf-8") as f:
-            linhas = [l.strip() for l in f if l.startswith("/") and modulo.upper() in l]
+            linhas = [l.strip() for l in f if l.startswith("/acesso") and modulo.upper() in l]
     except Exception as e:
         await update.message.reply_text(f"Erro ao ler o arquivo: {e}")
         return
@@ -91,13 +91,23 @@ async def ao_receber_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE
     await sent.delete()
     del usuario_em_espera[user_id]
 
-# --- Execução com polling (evita problemas com webhook) ---
+
+# Início do bot com polling
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
 
+    # Comando inicial
     app.add_handler(CommandHandler("start", start))
+
+    # Comandos de módulo
+    app.add_handler(CommandHandler("eportal", lambda u, c: selecionar_modulo(u, c, "EPORTAL")))
+    app.add_handler(CommandHandler("prp", lambda u, c: selecionar_modulo(u, c, "PRP")))
+    app.add_handler(CommandHandler("auth", lambda u, c: selecionar_modulo(u, c, "AUTH")))
+    app.add_handler(CommandHandler("mcs_eportal", lambda u, c: selecionar_modulo(u, c, "MCS_EPORTAL")))
+
+    # Recebe senha
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ao_receber_mensagem))
 
-    print("Bot rodando com polling...")
+    print("✅ Bot rodando com polling...")
     app.run_polling()
 

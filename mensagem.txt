@@ -3,3 +3,4 @@
 /acesso;AUTH;admin_auth;senha789;auth.potiguar.com;3306
 /acesso;MCS_EPORTAL;admin_mcs;senha000;mcs.potiguar.com;3306
 
+
