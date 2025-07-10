@@ -99,7 +99,6 @@ if __name__ == "__main__":
     app.run_webhook(
     listen="0.0.0.0",
     port=PORTA,
-    webhook_url=f"https://potiguar-bot.onrender.com/",
-    path="/"  # <-- ESSA LINHA resolve o 404
+    webhook_url=f"https://potiguar-bot.onrender.com/"
 )
 
