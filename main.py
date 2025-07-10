@@ -4,7 +4,9 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Messa
 from datetime import datetime, timedelta
 import asyncio
 
-TOKEN = os.getenv("BOT_TOKEN", "SEU_TOKEN_AQUI")
+TOKEN = os.getenv("BOT_TOKEN")
+if not TOKEN:
+    raise RuntimeError("❌ BOT_TOKEN não definido nas variáveis de ambiente!")
 ARQUIVO = "mensagem.txt"
 
 async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
