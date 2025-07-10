@@ -1,104 +1,104 @@
 import os
-import asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler,
-    ContextTypes, filters
+    filters, ContextTypes
 )
+import asyncio
 
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
-    raise RuntimeError("❌ BOT_TOKEN não definido nas variáveis de ambiente!")
+    raise RuntimeError("❌ BOT_TOKEN não definido!")
 
 ARQUIVO = "mensagem.txt"
-SENHA_ESPERADA = "potiguar123"
+SENHA_CORRETA = "potiguar123"
+PORTA = int(os.getenv("PORT", 8080))
 
-# Armazena estado do usuário (usuário_id -> módulo_escolhido)
-estado_usuarios = {}
+usuario_em_espera = {}  # user_id -> módulo escolhido
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Olá! Use o comando /acesso para visualizar os módulos disponíveis.")
-
-async def acesso(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    teclado = [
-        [InlineKeyboardButton("EPORTAL", callback_data="mod:EPORTAL")],
-        [InlineKeyboardButton("PRP", callback_data="mod:PRP")],
-        [InlineKeyboardButton("AUTH", callback_data="mod:AUTH")],
-        [InlineKeyboardButton("MCS_EPORTAL", callback_data="mod:MCS_EPORTAL")],
+    keyboard = [
+        [InlineKeyboardButton("EPORTAL", callback_data="EPORTAL")],
+        [InlineKeyboardButton("PRP", callback_data="PRP")],
+        [InlineKeyboardButton("AUTH", callback_data="AUTH")],
+        [InlineKeyboardButton("MCS_EPORTAL", callback_data="MCS_EPORTAL")]
     ]
-    await update.message.reply_text(
-        "Escolha o módulo:",
-        reply_markup=InlineKeyboardMarkup(teclado)
-    )
+    await update.message.reply_text("Selecione o módulo:", reply_markup=InlineKeyboardMarkup(keyboard))
 
-async def botao_clicado(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ao_clicar_modulo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if query.data.startswith("mod:"):
-        modulo = query.data.split(":")[1]
-        estado_usuarios[query.from_user.id] = modulo
-        await query.message.reply_text(f"🔐 Digite a senha para acessar o módulo *{modulo}*:", parse_mode="Markdown")
+    modulo = query.data
+    user_id = query.from_user.id
+    usuario_em_espera[user_id] = modulo
 
-async def processar_senha(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
+    await query.message.reply_text(f"🔒 Digite a senha para acessar o módulo *{modulo}*:", parse_mode="Markdown")
+
+async def ao_receber_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
     senha = update.message.text.strip()
 
-    if user_id not in estado_usuarios:
-        await update.message.reply_text("❌ Nenhum módulo foi selecionado. Use o comando /acesso.")
+    if user_id not in usuario_em_espera:
+        await update.message.reply_text("Use /start para iniciar.")
         return
 
-    if senha != SENHA_ESPERADA:
+    modulo = usuario_em_espera[user_id]
+
+    if senha != SENHA_CORRETA:
         await update.message.reply_text("❌ Senha incorreta.")
+        del usuario_em_espera[user_id]
         return
 
-    modulo = estado_usuarios.pop(user_id)
-    credenciais = await buscar_credenciais(modulo)
+    try:
+        with open(ARQUIVO, "r", encoding="utf-8") as f:
+            linhas = [l.strip() for l in f if l.startswith("/") and modulo.upper() in l]
+    except Exception as e:
+        await update.message.reply_text(f"Erro ao ler o arquivo: {e}")
+        return
 
-    if credenciais is None:
+    if not linhas:
         await update.message.reply_text("❌ Módulo não encontrado.")
         return
 
+    comando, conteudo = linhas[0].split(";", maxsplit=1)
+    dados = conteudo.split(";")
+
+    cred = {
+        "sistema": dados[0].strip() if len(dados) > 0 else "-",
+        "usuario": dados[1].strip() if len(dados) > 1 else "-",
+        "senha": dados[2].strip() if len(dados) > 2 else "-",
+        "host": dados[3].strip() if len(dados) > 3 else "-",
+        "porta": dados[4].strip() if len(dados) > 4 else "-"
+    }
+
     msg = (
         f"✅ Acesso autorizado!\n\n"
-        f"🔧 *Sistema:* {credenciais['sistema']}\n"
-        f"👤 *Usuário:* {credenciais['usuario']}\n"
-        f"🔑 *Senha:* {credenciais['senha']}\n"
-        f"📡 *Host:* {credenciais['host']}\n"
-        f"📍 *Porta:* {credenciais['porta']}"
+        f"🔧 *Sistema:* {cred['sistema']}\n"
+        f"👤 *Usuário:* {cred['usuario']}\n"
+        f"🔑 *Senha:* {cred['senha']}\n"
+        f"📡 *Host:* {cred['host']}\n"
+        f"📍 *Porta:* {cred['porta']}"
     )
 
     sent = await update.message.reply_text(msg, parse_mode="Markdown")
     await asyncio.sleep(120)
     await sent.delete()
+    del usuario_em_espera[user_id]
 
-async def buscar_credenciais(modulo: str):
-    try:
-        with open(ARQUIVO, "r", encoding="utf-8") as f:
-            linhas = [l.strip() for l in f if l.strip()]
-    except:
-        return None
-
-    for linha in linhas:
-        partes = linha.split(";")
-        if partes[0].strip().upper() == modulo.upper():
-            return {
-                "sistema": partes[0].strip() if len(partes) > 0 else "-",
-                "usuario": partes[1].strip() if len(partes) > 1 else "-",
-                "senha": partes[2].strip() if len(partes) > 2 else "-",
-                "host": partes[3].strip() if len(partes) > 3 else "-",
-                "porta": partes[4].strip() if len(partes) > 4 else "-",
-            }
-    return None
-
+# --- Execução via Webhook ---
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("acesso", acesso))
-    app.add_handler(CallbackQueryHandler(botao_clicado))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, processar_senha))
+    app.add_handler(CallbackQueryHandler(ao_clicar_modulo))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ao_receber_mensagem))
 
-    print("Bot rodando...")
-    app.run_polling()
+    print("Bot rodando com Webhook...")
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORTA,
+        webhook_url=f"https://potiguar-bot.onrender.com"  # troque pelo seu domínio
+    )
 

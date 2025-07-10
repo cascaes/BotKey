@@ -1,5 +1,5 @@
-EPORTAL;sistema_x;admin;1234!@#;servidor.com;3306
-PRP;sistema_y;usuario1;senha123;host1.com;5432
-AUTH;sistema_z;userz;passz;authhost;8080
-MCS_EPORTAL;sistema_mcs;root;senha456;192.168.0.1;3306
+/acesso;EPORTAL;admin_eportal;senha123;servidor.eportal.com;3306
+/acesso;PRP;admin_prp;senha456;servidor.prp.com;3306
+/acesso;AUTH;admin_auth;senha789;auth.potiguar.com;3306
+/acesso;MCS_EPORTAL;admin_mcs;senha000;mcs.potiguar.com;3306
 
