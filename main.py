@@ -99,6 +99,7 @@ if __name__ == "__main__":
     app.run_webhook(
     listen="0.0.0.0",
     port=PORTA,
-    webhook_url=f"https://potiguar-bot.onrender.com/"
+    webhook_url=f"https://potiguar-bot.onrender.com/",
+    webhook_path="/"
 )
 
