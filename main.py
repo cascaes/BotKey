@@ -97,8 +97,9 @@ if __name__ == "__main__":
     print("Bot rodando com Webhook...")
 
     app.run_webhook(
-        listen="0.0.0.0",
-        port=PORTA,
-        webhook_url=f"https://potiguar-bot.onrender.com"  # troque pelo seu domínio
-    )
+    listen="0.0.0.0",
+    port=PORTA,
+    webhook_url=f"https://potiguar-bot.onrender.com/",
+    path="/"  # <-- ESSA LINHA resolve o 404
+)
 
