@@ -1,19 +1,21 @@
 import os
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from datetime import datetime, timedelta
 import asyncio
 
 TOKEN = os.getenv("BOT_TOKEN", "SEU_TOKEN_AQUI")
 ARQUIVO = "mensagem.txt"
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         with open(ARQUIVO, "r", encoding="utf-8") as f:
             linhas = [l.strip() for l in f if l.strip()]
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Erro ao ler arquivo: {e}")
         return
+
+    texto_recebido = update.message.text.strip()
 
     for linha in linhas:
         if not linha.startswith("/"):
@@ -24,7 +26,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             continue
 
         comando, conteudo = partes
-        if update.message.text.strip() == comando.strip():
+        if texto_recebido == comando.strip():
             dados = conteudo.split(";")
             cred = {
                 "sistema": dados[0].strip() if len(dados) > 0 else "-",
@@ -50,9 +52,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text="❌ Comando não encontrado.")
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Olá! Envie um comando para receber as credenciais!")
+
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
+
+    # Handler fixo para /start
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler(None, start))
+
+    # Handler para qualquer outro comando (ex: /acesso)
+    app.add_handler(MessageHandler(filters.COMMAND, handle_command))
+
     print("Bot rodando...")
     app.run_polling()
+
